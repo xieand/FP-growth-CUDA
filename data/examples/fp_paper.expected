@@ -1,0 +1,18 @@
+f #SUP: 4
+c #SUP: 4
+a #SUP: 3
+b #SUP: 3
+m #SUP: 3
+p #SUP: 3
+c p #SUP: 3
+f m #SUP: 3
+c m #SUP: 3
+a m #SUP: 3
+f c m #SUP: 3
+f a m #SUP: 3
+c a m #SUP: 3
+f c a m #SUP: 3
+f a #SUP: 3
+c a #SUP: 3
+f c a #SUP: 3
+f c #SUP: 3

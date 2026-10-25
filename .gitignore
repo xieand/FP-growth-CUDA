@@ -1,0 +1,9 @@
+bin/
+build/
+out/
+data/raw/
+data/uci/
+__pycache__/
+*.o
+*.obj
+*.exe

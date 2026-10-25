@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 3.18)
+project(fpgrowth LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+add_library(fpg_common STATIC src/common.cpp)
+target_include_directories(fpg_common PUBLIC include)
+
+add_executable(fpgrowth_cpu src/fpgrowth_cpu.cpp)
+target_link_libraries(fpgrowth_cpu PRIVATE fpg_common)
+
+# The CUDA source compiled as plain C++ (serial emulation of the kernels).
+add_executable(fpgrowth_gpu_emu src/fpgrowth_gpu_emu.cpp)
+target_link_libraries(fpgrowth_gpu_emu PRIVATE fpg_common)
+
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+  enable_language(CUDA)
+  set(CMAKE_CUDA_STANDARD 17)
+  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
+      set(CMAKE_CUDA_ARCHITECTURES native)
+    else()
+      set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86 89)
+    endif()
+  endif()
+  add_executable(fpgrowth_gpu src/fpgrowth_gpu.cu)
+  target_link_libraries(fpgrowth_gpu PRIVATE fpg_common)
+else()
+  message(STATUS "No CUDA compiler found: building only fpgrowth_cpu and fpgrowth_gpu_emu")
+endif()
