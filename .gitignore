@@ -4,6 +4,7 @@ out/
 data/raw/
 data/uci/
 __pycache__/
+.vscode/
 *.o
 *.obj
 *.exe

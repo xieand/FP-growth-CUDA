@@ -25,6 +25,15 @@ SWEEPS = {
     "chess": [0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5],
     "connect4": [0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65],
     "adult": [0.3, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005],
+    "tictactoe": [0.3, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005],
+    "votes": [0.5, 0.4, 0.3, 0.2, 0.1, 0.05],
+    "splice": [0.3, 0.2, 0.1, 0.05, 0.03, 0.02],
+    "nursery": [0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001],
+    "letter": [0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001],
+    "krkopt": [0.05, 0.02, 0.01, 0.005, 0.002, 0.001, 0.0005],
+    "poker": [0.05, 0.01, 0.005, 0.001, 0.0005, 0.0002, 0.0001],
+    "covertype": [0.2, 0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001, 0.0005],
+    "census": [0.8, 0.7, 0.6, 0.5, 0.4, 0.35, 0.3, 0.25],
     "retail": [0.05, 0.03, 0.02, 0.01, 0.0075, 0.005],
 }
 FIELDS = ["dataset", "binary", "minsup", "min_count", "transactions", "frequent_items", "tree_nodes", "itemsets",
@@ -107,7 +116,7 @@ def summary(rows: list[dict], out: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--datasets", nargs="+", default=["mushroom", "chess", "connect4", "adult"])
+    ap.add_argument("--datasets", nargs="+", default=[d for d in SWEEPS if d != "retail"])
     ap.add_argument("--bins", nargs="+", default=["fpgrowth_cpu", "fpgrowth_gpu"])
     ap.add_argument("--bin-dir", default=str(ROOT / "bin"))
     ap.add_argument("--repeat", type=int, default=3, help="runs per point; the median time is reported")

@@ -12,10 +12,9 @@ implemented twice:
 Both programs read the same input, use the same item ordering, and write identical
 results, so either can be used to check the other.
 
-> Status: the CPU version and the emulated GPU version are built and validated
-> (155/155 tests). The real CUDA build still has to be compiled and benchmarked on
-> a machine with an NVIDIA GPU (see [Running on a GPU](#running-on-a-gpu)). The full
-> report will follow; this README documents the design and the results so far.
+> Status: all three programs are built and validated (260/260 tests), and CPU and
+> GPU are benchmarked on 13 UCI datasets on an RTX 3060 Ti. The full report will
+> follow; this README documents the design and the results so far.
 
 ## Repository layout
 
@@ -32,7 +31,7 @@ scripts/bruteforce.py   independent Apriori reference miner (Python)
 scripts/compare.py      compares two result files
 scripts/run_tests.py    full correctness suite
 scripts/benchmark.py    support sweeps -> CSV, Markdown table, plots
-results/                benchmark output (bench.csv, summary.md, *.png)
+results/<machine>/      benchmark output per machine (bench.csv, summary.md, *.png)
 ```
 
 ## Building
@@ -53,6 +52,12 @@ On Windows use `mingw32-make` with MSYS2/MinGW g++. For the CUDA build on Window
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release      # builds fpgrowth_gpu when CUDA is found
 ```
+
+Visual Studio 2026 (MSVC 14.50) needs CUDA 12.4 or newer. The benchmarked binary was
+instead built with the CUDA 11.8 toolkit bundled with MATLAB R2023b, which needs
+`-allow-unsupported-compiler -D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`, explicit
+`-I`/`-L` paths to its `include` and `lib\x64`, and a manual link against
+`cudart_static.lib` (that copy has no `cudadevrt.lib`).
 
 ## Usage
 
@@ -198,7 +203,10 @@ merges) on:
    adult 40%), and CPU vs. GPU at lower support (mushroom 15% = 90,325 itemsets, chess 75%,
    connect-4 90%, adult 10%), with default and with small (4096) batch budgets.
 
-Current result: **155 passed, 0 failed** (`fpgrowth_cpu` and `fpgrowth_gpu_emu`).
+Current result: **260 passed, 0 failed** (`fpgrowth_cpu`, `fpgrowth_gpu` on an RTX 3060 Ti,
+and `fpgrowth_gpu_emu`). On the nine additional benchmark datasets, `fpgrowth_gpu` was also
+checked against `fpgrowth_cpu` itemset by itemset (default and 4096 batch budgets), and
+both programs report the same itemset counts at every point of the benchmark sweeps.
 As an external check, the counts also match published FIMI-repository figures for the same
 UCI data: chess at 90% gives 622 itemsets and connect-4 at 95% gives 2,201.
 
@@ -212,71 +220,105 @@ UCI data: chess at 90% gives 622 itemsets and connect-4 at 95% gives 2,201.
 | chess (kr-vs-kp) | 22 | 3,196 | 75 | 37.0 | `attribute=value` |
 | connect-4 | 26 | 67,557 | 129 | 43.0 | `attribute=value` (the `.Z` file is decoded by the script) |
 | adult | 2 | 48,842 | 114 | 12.9 | train + test; age / hours / capital gain & loss binned; `fnlwgt`, `education-num` dropped |
+| tic-tac-toe | 101 | 958 | 29 | 10.0 | `square=x/o/b` + class |
+| votes | 105 | 435 | 34 | 16.1 | `issue=y/n`, missing votes dropped |
+| splice | 69 | 3,190 | 290 | 61.0 | `pNN=base` for the 60 DNA positions + class |
+| nursery | 76 | 12,960 | 32 | 9.0 | `attribute=value` |
+| letter | 59 | 20,000 | 282 | 17.0 | `feature=value` (16 integer features) + letter |
+| krkopt | 23 | 28,056 | 58 | 7.0 | piece files/ranks + result |
+| poker | 158 | 1,025,010 | 62 | 6.0 | train + test; the five cards as a basket (`10H`, `QS`, ...) + `hand=class` |
+| covertype | 31 | 581,012 | 101 | 13.0 | 10 numeric attributes as quintiles (`q1`–`q5`), wilderness area, soil type, cover type |
+| census (KDD) | 117 | 299,285 | 522 | 38.9 | train + test; age / weeks worked binned, money columns `none`/`positive`, instance weight dropped |
 | online retail (optional) | 352 | ~20k invoices | ~4k | ~20 | baskets of stock codes; needs `pip install openpyxl` |
 
 `python scripts/benchmark.py` sweeps the minimum support per dataset, takes the median of 3
-runs, and writes `results/bench.csv`, `results/summary.md` (all rows) and one figure per
-dataset. Times are build + mine, excluding file reading and writing (itemsets are counted,
+runs, and writes `bench.csv`, `summary.md` (all rows) and one figure per dataset to the
+folder given by `--out` (one folder per machine, e.g. `--out results/rtx3060ti`). Times are build + mine, excluding file reading and writing (itemsets are counted,
 not written).
 
-### CPU results (Intel Core Ultra 7 256V, 16 GB, Windows 11, g++ 14.2 -O3)
+### CPU vs GPU results
 
-| dataset | min sup | frequent itemsets | longest | time (ms) | peak RAM (MB) |
-|---|---|---|---|---|---|
-| mushroom | 20% | 45,391 | 15 | 5.4 | 11.1 |
-| mushroom | 5% | 3,082,619 | 17 | 114 | 11.1 |
-| mushroom | 1% | 76,800,141 | 19 | 1,821 | 11.1 |
-| chess | 80% | 8,227 | 10 | 3.4 | 7.3 |
-| chess | 60% | 254,944 | 14 | 83 | 7.3 |
-| chess | 50% | 1,272,932 | 16 | 379 | 7.3 |
-| connect-4 | 90% | 27,127 | 12 | 23.5 | 41.5 |
-| connect-4 | 75% | 1,585,551 | 17 | 386 | 41.5 |
-| connect-4 | 65% | 9,724,531 | 19 | 2,061 | 41.5 |
-| adult | 10% | 2,757 | 9 | 17.5 | 22.4 |
-| adult | 1% | 93,294 | 11 | 83 | 21.9 |
-| adult | 0.5% | 212,638 | 12 | 156 | 22.3 |
+Machine: Intel Core i5-12400F, 32 GB, NVIDIA GeForce RTX 3060 Ti (8 GB, 38 SMs, CC 8.6),
+Windows 11. `fpgrowth_cpu`: g++ 14.2 `-O3`. `fpgrowth_gpu`: CUDA 11.8, `-arch=sm_86`, MSVC 14.50.
+Lowest support of each sweep (all rows in [`results/rtx3060ti/summary.md`](results/rtx3060ti/summary.md)):
 
-![mushroom](results/mushroom.png)
-![chess](results/chess.png)
-![connect4](results/connect4.png)
-![adult](results/adult.png)
+| dataset | min sup | frequent itemsets | CPU (ms) | GPU (ms) | speedup | GPU mine-only speedup | peak device (MB) |
+|---|---|---|---|---|---|---|---|
+| poker | 0.01% | 69,478 | 1,954 | 148 | 13.2× | 9.8× | 267 |
+| census | 25% | 56,074,563 | 22,670 | 2,760 | 8.2× | 8.6× | 809 |
+| covertype | 0.05% | 2,096,581 | 3,843 | 749 | 5.1× | 5.3× | 593 |
+| connect-4 | 65% | 9,724,531 | 1,910 | 393 | 4.9× | 6.0× | 209 |
+| letter | 0.1% | 2,202,394 | 1,081 | 303 | 3.6× | 4.3× | 401 |
+| splice | 2% | 713,034 | 1,656 | 485 | 3.4× | 4.0× | 417 |
+| chess | 50% | 1,272,932 | 356 | 133 | 2.7× | 5.7× | 35 |
+| adult | 0.5% | 212,638 | 134 | 85 | 1.6× | 4.9× | 43 |
+| votes | 5% | 321,127 | 126 | 96 | 1.3× | 3.7× | 23 |
+| mushroom | 1% | 76,800,141 | 1,745 | 2,041 | 0.86× | 0.88× | 682 |
+| nursery | 0.1% | 88,250 | 34 | 71 | 0.49× | 2.8× | 14 |
+| krkopt | 0.05% | 38,787 | 29 | 67 | 0.44× | 2.6× | 21 |
+| tic-tac-toe | 0.5% | 48,997 | 20 | 69 | 0.29× | 2.9× | 5 |
+
+![mushroom](results/rtx3060ti/mushroom.png)
+![chess](results/rtx3060ti/chess.png)
+![connect4](results/rtx3060ti/connect4.png)
+![adult](results/rtx3060ti/adult.png)
+![tictactoe](results/rtx3060ti/tictactoe.png)
+![votes](results/rtx3060ti/votes.png)
+![splice](results/rtx3060ti/splice.png)
+![nursery](results/rtx3060ti/nursery.png)
+![letter](results/rtx3060ti/letter.png)
+![krkopt](results/rtx3060ti/krkopt.png)
+![poker](results/rtx3060ti/poker.png)
+![covertype](results/rtx3060ti/covertype.png)
+![census](results/rtx3060ti/census.png)
 
 Observations so far:
 
 * **Runtime tracks the output size.** Once support is low enough that mining dominates,
-  time grows almost linearly with the number of frequent itemsets: about 40 M itemsets/s on
-  mushroom and 4–5 M itemsets/s on connect-4, whose conditional trees are deeper and wider.
+  time grows almost linearly with the number of frequent itemsets: about 44 M itemsets/s on
+  mushroom and about 5 M itemsets/s on connect-4, whose conditional trees are deeper and wider.
   At high support the cost is the two database scans and tree construction (e.g. adult:
-  tree build ≈ 14 ms of the 17.5 ms at 10%).
-* **Memory is flat.** Peak RAM is set by the input plus the global FP-tree (at most 72,770
-  nodes here, for adult at 0.5%), not by the number of itemsets, because itemsets are streamed out instead of
-  stored. Connect-4 uses more memory only because its input is larger (2.9 M item
-  occurrences).
+  CPU tree build 12.5 ms of 15.7 ms at 10%).
+* **Memory is flat.** CPU peak RAM is set by the input plus the global FP-tree, not by the
+  number of itemsets, because itemsets are streamed out instead of stored. It is constant
+  across each sweep, from 6 MB (tic-tac-toe) to 488 MB (census, 11.6 M item occurrences).
+  GPU device memory grows with the mining batches but stays below 0.81 GB everywhere.
+* **The GPU wins on large and dense inputs.** Speedups at the lowest support reach 13× on
+  poker, 8× on census and 5× on covertype and connect-4. Poker shows the tree construction:
+  the CPU spends about 1.25 s inserting 1 M nearly unique hands (1.28 M nodes), the GPU
+  about 75 ms.
+* **Small inputs pay a fixed GPU startup cost.** Every GPU run includes about 55–80 ms of
+  CUDA context creation, counted in the build phase because it happens at the first device
+  allocation. Inputs that the CPU mines in under ~100 ms (tic-tac-toe, nursery, krkopt, and
+  every dataset at high support) are therefore slower on the GPU, although GPU mining alone
+  is still 2.6–2.9× faster on them.
+* **Mushroom is the exception.** GPU mining is slower even at 77 M itemsets. The CPU is
+  already very fast there, and the GPU path walks visit items that a CPU conditional tree
+  would have pruned.
 * **The GPU formulation does little extra work.** Run serially (emulation), the GPU
   algorithm takes 1.1–3.1× the time of the CPU algorithm on the same inputs (e.g. chess 70%:
   20 ms vs 18 ms; mushroom 10%: 93 ms vs 30 ms) in only 10–15 batches. The data-parallel
   version therefore performs a similar amount of total work as recursive FP-growth while
   exposing thousands of independent threads per launch.
 
-### Running on a GPU
+### Reproducing on another GPU machine
 
-This machine has no NVIDIA GPU, so the CUDA binary has not been built here yet. On any
-CUDA machine (lab workstation, or Google Colab with a T4 runtime):
+On any CUDA machine (lab workstation, or Google Colab with a T4 runtime):
 
 ```bash
 git clone <this repo> && cd ESE_327_proj1
 make gpu cpu                       # add CUDA_ARCH=-arch=sm_75 if -arch=native is unsupported
-python3 scripts/fetch_uci.py
-python3 scripts/run_tests.py       # now also checks fpgrowth_gpu against Apriori and the CPU
-python3 scripts/benchmark.py       # CPU and GPU sweeps, adds a GPU speedup panel to each figure
+python3 scripts/fetch_uci.py       # all 13 datasets (~470 MB of converted text)
+python3 scripts/run_tests.py       # also checks fpgrowth_gpu against Apriori and the CPU
+python3 scripts/benchmark.py --out results/<machine>   # e.g. results/jetson_orin_nano
 ```
 
 ## Remaining work for the report
 
-* Build and benchmark `fpgrowth_gpu` on real hardware; report GPU time per phase, device
-  memory, and speedup vs. support.
+* Initialize the CUDA context (e.g. `cudaFree(0)`) before the build timer starts, or report
+  it as a separate phase, so small inputs are not dominated by startup cost.
 * Possible GPU optimizations to evaluate: shared-memory privatized counters for patterns
   with few candidates, warp-aggregated atomics, overlapping host bookkeeping with the
   next batch (CUDA streams), and keeping child batches resident on the device.
-* Optional larger benchmarks: Online Retail and replicated versions of connect-4 to study
-  scaling with the number of transactions.
+* Optional benchmarks: Online Retail, and replicated versions of connect-4 to study
+  scaling with the number of transactions at fixed density.
